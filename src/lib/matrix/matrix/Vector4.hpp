@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2022 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2023 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,70 +31,65 @@
  *
  ****************************************************************************/
 
+/**
+ * @file Vector4.hpp
+ *
+ * 4D vector class.
+ *
+ * @author Matthias Grob <maetugr@gmail.com>
+ */
+
 #pragma once
 
-#include <px4_platform_common/module.h>
-#include <px4_platform_common/module_params.h>
+#include "math.hpp"
 
-#include <src/modules/microdds_client/dds_topics.h>
+namespace matrix
+{
 
-#include <lib/timesync/Timesync.hpp>
+template <typename Type, size_t M, size_t N>
+class Matrix;
 
-class MicroddsClient : public ModuleBase<MicroddsClient>, public ModuleParams
+template <typename Type, size_t M>
+class Vector;
+
+template<typename Type>
+class Vector4 : public Vector<Type, 4>
 {
 public:
-	enum class Transport {
-		Serial,
-		Udp
-	};
+	using Matrix41 = Matrix<Type, 4, 1>;
 
-	MicroddsClient(Transport transport, const char *device, int baudrate, const char *host, const char *port,
-		       bool localhost_only, bool custom_participant, const char *client_namespace);
+	Vector4() = default;
 
-	~MicroddsClient();
+	Vector4(const Matrix41 &other) :
+		Vector<Type, 4>(other)
+	{
+	}
 
-	/** @see ModuleBase */
-	static int task_spawn(int argc, char *argv[]);
+	explicit Vector4(const Type data_[3]) :
+		Vector<Type, 4>(data_)
+	{
+	}
 
-	/** @see ModuleBase */
-	static MicroddsClient *instantiate(int argc, char *argv[]);
+	Vector4(Type x1, Type x2, Type x3, Type x4)
+	{
+		Vector4 &v(*this);
+		v(0) = x1;
+		v(1) = x2;
+		v(2) = x3;
+		v(3) = x4;
+	}
 
-	/** @see ModuleBase */
-	static int custom_command(int argc, char *argv[]);
+	template<size_t P, size_t Q>
+	Vector4(const Slice<Type, 4, 1, P, Q> &slice_in) : Vector<Type, 4>(slice_in)
+	{
+	}
 
-	/** @see ModuleBase */
-	static int print_usage(const char *reason = nullptr);
-
-	/** @see ModuleBase::run() */
-	void run() override;
-
-	/** @see ModuleBase::print_status() */
-	int print_status() override;
-
-private:
-	int setBaudrate(int fd, unsigned baud);
-
-	const bool _localhost_only;
-	const bool _custom_participant;
-	const char *_client_namespace;
-
-	SendTopicsSubs *_subs{nullptr};
-	RcvTopicsPubs *_pubs{nullptr};
-
-	uxrSerialTransport *_transport_serial{nullptr};
-	uxrUDPTransport *_transport_udp{nullptr};
-	uxrCommunication *_comm{nullptr};
-	int _fd{-1};
-
-	int _last_payload_tx_rate{}; ///< in B/s
-	int _last_payload_rx_rate{}; ///< in B/s
-	bool _connected{false};
-
-	Timesync _timesync{};
-
-	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::XRCE_DDS_DOM_ID>) _param_xrce_dds_dom_id,
-		(ParamInt<px4::params::XRCE_DDS_KEY>) _param_xrce_key
-	)
+	template<size_t P, size_t Q>
+	Vector4(const Slice<Type, 1, 4, P, Q> &slice_in) : Vector<Type, 4>(slice_in)
+	{
+	}
 };
 
+using Vector4f = Vector4<float>;
+
+} // namespace matrix

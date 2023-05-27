@@ -47,7 +47,7 @@
 #include "python/ekf_derivation/generated/compute_mag_z_innov_var_and_h.h"
 #include "python/ekf_derivation/generated/compute_yaw_321_innov_var_and_h.h"
 #include "python/ekf_derivation/generated/compute_yaw_312_innov_var_and_h.h"
-#include "python/ekf_derivation/generated/compute_mag_declination_innov_innov_var_and_h.h"
+#include "python/ekf_derivation/generated/compute_mag_declination_pred_innov_var_and_h.h"
 
 #include <mathlib/mathlib.h>
 
@@ -167,6 +167,7 @@ bool Ekf::fuseMag(const Vector3f &mag, estimator_aid_source3d_s &aid_src_mag, bo
 		} else if (index == 2) {
 			// we do not fuse synthesized magnetomter measurements when doing 3D fusion
 			if (_control_status.flags.synthetic_mag_z) {
+				fused[2] = true;
 				continue;
 			}
 
@@ -216,6 +217,11 @@ bool Ekf::fuseMag(const Vector3f &mag, estimator_aid_source3d_s &aid_src_mag, bo
 	if (fused[0] && fused[1] && fused[2]) {
 		aid_src_mag.fused = true;
 		aid_src_mag.time_last_fuse = _time_delayed_us;
+
+		if (update_all_states) {
+			_time_last_heading_fuse = _time_delayed_us;
+		}
+
 		return true;
 	}
 
@@ -335,10 +341,12 @@ bool Ekf::fuseDeclination(float decl_sigma)
 	const float R_DECL = sq(decl_sigma);
 
 	Vector24f H;
-	float innovation;
+	float decl_pred;
 	float innovation_variance;
 
-	sym::ComputeMagDeclinationInnovInnovVarAndH(getStateAtFusionHorizonAsVector(), P, getMagDeclination(), R_DECL, FLT_EPSILON, &innovation, &innovation_variance, &H);
+	sym::ComputeMagDeclinationPredInnovVarAndH(getStateAtFusionHorizonAsVector(), P, R_DECL, FLT_EPSILON, &decl_pred, &innovation_variance, &H);
+
+	const float innovation = wrap_pi(decl_pred - getMagDeclination());
 
 	if (innovation_variance < R_DECL) {
 		// variance calculation is badly conditioned
